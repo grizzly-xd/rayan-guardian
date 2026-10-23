@@ -1,3 +1,4 @@
+// eslint.config.js — versi kompatibel dengan eslint-plugin-react-hooks v5
 import js from '@eslint/js';
 import globals from 'globals';
 import react from 'eslint-plugin-react';
