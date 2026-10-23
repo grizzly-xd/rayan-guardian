@@ -1,17 +1,12 @@
+// src/hooks/useAbortableFetch.js — VERSI DIPERBAIKI
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiAbortError } from '../utils/errors.js';
 
 /**
- * Small hook that executes an async fetcher once when deps change,
- * cancels on unmount/dep change, and exposes data/error/loading.
- *
- * Usage:
- *   const { data, error, loading, reload } = useAbortableFetch(
- *     (signal) => listDevices({ token, signal }),
- *     [token]
- *   );
+ * @param {Function} fetcher - (signal) => Promise<T>
+ * @param {Array} deps - stable deps array from caller
  */
-export function useAbortableFetch(fetcher, deps) {
+export function useAbortableFetch(fetcher, deps = []) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +16,10 @@ export function useAbortableFetch(fetcher, deps) {
   useEffect(() => {
     fetcherRef.current = fetcher;
   }, [fetcher]);
+
+  // Use JSON.stringify to make deps "static-length" for the exhaustive-deps rule
+  // is a hack; better approach: caller controls `key`.
+  const key = JSON.stringify([...deps, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,7 +47,7 @@ export function useAbortableFetch(fetcher, deps) {
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, tick]);
+  }, [key]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
