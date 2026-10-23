@@ -1,14 +1,19 @@
-export default function Button({
-  children,
-  variant = 'default',
-  size,
-  type = 'button',
-  disabled = false,
-  loading = false,
-  onClick,
-  className = '',
-  ...rest
-}) {
+import { forwardRef } from 'react';
+
+const Button = forwardRef(function Button(
+  {
+    children,
+    variant = 'default',
+    size,
+    type = 'button',
+    disabled = false,
+    loading = false,
+    onClick,
+    className = '',
+    ...rest
+  },
+  ref
+) {
   const classes = ['btn'];
   if (variant !== 'default') classes.push(variant);
   if (size) classes.push(size);
@@ -16,6 +21,7 @@ export default function Button({
 
   return (
     <button
+      ref={ref}
       type={type}
       className={classes.join(' ')}
       disabled={disabled || loading}
@@ -27,4 +33,6 @@ export default function Button({
       {children}
     </button>
   );
-}
+});
+
+export default Button;
