@@ -1,4 +1,4 @@
-import { apiBaseUrl, apiTimeoutMs, isApiConfigured } from '../config/env.js';
+import { apiTimeoutMs, getEffectiveConfig, isApiConfigured } from '../config/env.js';
 import {
   ApiConfigError,
   ApiError,
@@ -7,23 +7,10 @@ import {
   mapHttpError,
 } from '../utils/errors.js';
 
-/**
- * Centralized fetch wrapper:
- *  - Injects Authorization header (Firebase ID token) if provided.
- *  - Uses AbortController with timeout.
- *  - Parses JSON safely.
- *  - Normalizes HTTP errors.
- *
- * Signature:
- *   request(path, { method, body, token, signal, timeoutMs, retryable })
- *
- * Return: parsed body (object/array) OR null for 204.
- */
 export async function apiRequest(path, options = {}) {
-  if (!isApiConfigured) {
-    throw new ApiConfigError(
-      'Backend belum dikonfigurasi. Isi VITE_API_BASE_URL.'
-    );
+  const cfg = getEffectiveConfig();
+  if (!isApiConfigured && !cfg.apiBaseUrl) {
+    throw new ApiConfigError('Backend belum dikonfigurasi. Isi VITE_API_BASE_URL atau gunakan Konfigurasi API.');
   }
   if (typeof path !== 'string' || !path.startsWith('/')) {
     throw new ApiError('Path API tidak valid.', { code: 'bad_path' });
@@ -39,7 +26,7 @@ export async function apiRequest(path, options = {}) {
     ...rest
   } = options;
 
-  const url = `${apiBaseUrl}${path}`;
+  const url = `${cfg.apiBaseUrl}${path}`;
   const controller = new AbortController();
   const onExternalAbort = () => controller.abort();
   if (signal) {
@@ -70,7 +57,6 @@ export async function apiRequest(path, options = {}) {
     });
   } catch (err) {
     if (err?.name === 'AbortError' || err?.name === 'TimeoutError') {
-      // Distinguish user-abort vs timeout
       if (signal?.aborted) throw new ApiAbortError();
       throw new ApiTimeoutError();
     }
@@ -83,7 +69,6 @@ export async function apiRequest(path, options = {}) {
     if (signal) signal.removeEventListener('abort', onExternalAbort);
   }
 
-  // Parse body
   let payload = null;
   const contentType = res.headers.get('content-type') || '';
   if (res.status !== 204) {
@@ -102,7 +87,6 @@ export async function apiRequest(path, options = {}) {
           cause: parseErr,
         });
       }
-      // Non-2xx with unparseable body → fall through to status mapping
     }
   }
 
@@ -111,6 +95,5 @@ export async function apiRequest(path, options = {}) {
       (payload && typeof payload === 'object' && (payload.message || payload.error)) || null;
     throw mapHttpError(res.status, serverMessage);
   }
-
   return payload;
 }
