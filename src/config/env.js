@@ -1,7 +1,4 @@
-/**
- * Centralized environment access + validation.
- * Read-only, no side effects beyond reading import.meta.env.
- */
+import { readMode, readSavedConfig, API_MODES } from './runtimeConfig.js';
 
 function readString(v) {
   return typeof v === 'string' ? v.trim() : '';
@@ -16,11 +13,43 @@ function stripTrailingSlash(url) {
   return url.replace(/\/+$/, '');
 }
 
-export const apiBaseUrl = stripTrailingSlash(readString(import.meta.env.VITE_API_BASE_URL));
-
-export const socketUrl = stripTrailingSlash(
-  readString(import.meta.env.VITE_SOCKET_URL) || apiBaseUrl
+const buildApiBaseUrl = stripTrailingSlash(readString(import.meta.env.VITE_API_BASE_URL));
+const buildSocketUrl = stripTrailingSlash(
+  readString(import.meta.env.VITE_SOCKET_URL) || buildApiBaseUrl
 );
+
+/**
+ * Resolve effective config — respects manual override if set.
+ * Called at module load for the initial value, and via `getEffectiveConfig()`
+ * to read the latest value after user changes it (requires page reload).
+ */
+function resolveEffective() {
+  const mode = readMode();
+  if (mode === API_MODES.MANUAL) {
+    const saved = readSavedConfig();
+    if (saved) {
+      return {
+        apiBaseUrl: saved.apiBaseUrl,
+        socketUrl: saved.apiBaseUrl,
+        source: 'manual',
+        savedAt: saved.savedAt,
+      };
+    }
+  }
+  return {
+    apiBaseUrl: buildApiBaseUrl,
+    socketUrl: buildSocketUrl,
+    source: 'auto',
+    savedAt: null,
+  };
+}
+
+const effective = resolveEffective();
+
+export const apiBaseUrl = effective.apiBaseUrl;
+export const socketUrl = effective.socketUrl;
+export const apiConfigSource = effective.source;
+export const apiConfigSavedAt = effective.savedAt;
 
 export const apiTimeoutMs = readNumber(import.meta.env.VITE_API_TIMEOUT_MS, 15000);
 
@@ -42,9 +71,18 @@ export const isFirebaseConfigured = Boolean(
 
 export const isApiConfigured = Boolean(apiBaseUrl);
 
-/**
- * Config warnings surfaced in UI — no silent fallback.
- */
+/** For UI display: what URL the app is currently talking to. */
+export function getEffectiveConfig() {
+  const e = resolveEffective();
+  return {
+    apiBaseUrl: e.apiBaseUrl,
+    socketUrl: e.socketUrl,
+    source: e.source,
+    savedAt: e.savedAt,
+    buildTimeUrl: buildApiBaseUrl,
+  };
+}
+
 export function getConfigIssues() {
   const issues = [];
   if (!isFirebaseConfigured) {
@@ -58,7 +96,7 @@ export function getConfigIssues() {
     issues.push({
       key: 'api',
       message:
-        'Backend belum dikonfigurasi. Isi VITE_API_BASE_URL dengan URL backend Railway Anda.',
+        'Backend belum dikonfigurasi. Isi VITE_API_BASE_URL atau gunakan Konfigurasi API manual.',
     });
   }
   return issues;
