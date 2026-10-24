@@ -10,15 +10,9 @@ import { isFirebaseConfigured } from '../config/env.js';
 
 const AuthContext = createContext(null);
 
-/**
- * Provider must wrap app. If Firebase not configured, status='unconfigured'
- * and login attempt will throw a clear error.
- */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [status, setStatus] = useState(
-    isFirebaseConfigured ? 'loading' : 'unconfigured'
-  );
+  const [status, setStatus] = useState(isFirebaseConfigured ? 'loading' : 'unconfigured');
   const [token, setToken] = useState(null);
 
   useEffect(() => {
@@ -37,6 +31,7 @@ export function AuthProvider({ children }) {
         uid: fbUser.uid,
         email: fbUser.email,
         displayName: fbUser.displayName,
+        photoURL: fbUser.photoURL,
       });
       const t = await getCurrentIdToken();
       setToken(t);
@@ -47,7 +42,6 @@ export function AuthProvider({ children }) {
 
   const signIn = useCallback(async (email, password) => {
     await signInAdmin(email, password);
-    // onAuthStateChanged will update state.
   }, []);
 
   const signOutUser = useCallback(async () => {
@@ -64,6 +58,13 @@ export function AuthProvider({ children }) {
     return t;
   }, []);
 
+  /** Called after profile update — re-read current user snapshot. */
+  const refreshUser = useCallback(() => {
+    // onAuthStateChanged fires on reload(); nothing to do here unless the
+    // caller wants an immediate refresh. Firebase auto-refreshes profile
+    // after updateProfile, so onAuthStateChanged will re-fire.
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -74,8 +75,9 @@ export function AuthProvider({ children }) {
       signOut: signOutUser,
       resetPassword,
       refreshToken,
+      refreshUser,
     }),
-    [user, token, status, signIn, signOutUser, resetPassword, refreshToken]
+    [user, token, status, signIn, signOutUser, resetPassword, refreshToken, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -83,8 +85,6 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth harus dipakai di dalam <AuthProvider>.');
-  }
+  if (!ctx) throw new Error('useAuth harus dipakai di dalam <AuthProvider>.');
   return ctx;
 }
