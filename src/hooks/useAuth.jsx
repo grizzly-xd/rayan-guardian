@@ -58,11 +58,8 @@ export function AuthProvider({ children }) {
     return t;
   }, []);
 
-  /** Called after profile update — re-read current user snapshot. */
   const refreshUser = useCallback(() => {
-    // onAuthStateChanged fires on reload(); nothing to do here unless the
-    // caller wants an immediate refresh. Firebase auto-refreshes profile
-    // after updateProfile, so onAuthStateChanged will re-fire.
+    // onAuthStateChanged auto-fires after updateProfile
   }, []);
 
   const value = useMemo(
