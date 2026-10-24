@@ -1,23 +1,36 @@
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import MobileNav from './MobileNav.jsx';
-import ConnectionBadge from './ConnectionBadge.jsx';
-import { useAuth } from '../../hooks/useAuth.jsx';
+import Topbar from './Topbar.jsx';
 
 export default function AppLayout() {
-  const { user } = useAuth();
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('rayan_guardian_sidebar_collapsed') === '1';
+  });
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  function toggleCollapse() {
+    setCollapsed((v) => {
+      const next = !v;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('rayan_guardian_sidebar_collapsed', next ? '1' : '0');
+      }
+      return next;
+    });
+  }
 
   return (
-    <div className="app-shell">
-      <Sidebar />
+    <div className={`app-shell${collapsed ? ' sidebar-collapsed-shell' : ''}`}>
+      <Sidebar
+        collapsed={collapsed}
+        onToggleCollapse={toggleCollapse}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
       <div className="main-area">
-        <header className="topbar">
-          <div>
-            <div className="topbar-title">Rayan Guardian</div>
-            <div className="topbar-sub">{user?.email || ''}</div>
-          </div>
-          <ConnectionBadge />
-        </header>
+        <Topbar onMobileOpen={() => setMobileOpen(true)} />
         <main>
           <Outlet />
         </main>
